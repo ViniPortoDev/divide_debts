@@ -1,6 +1,9 @@
 import 'package:divide_debts/app/controller/home_controller.dart';
+import 'package:divide_debts/app/models/debt_model.dart';
+import 'package:divide_debts/app/models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:divide_debts/app/view/widgets/custom_text_form_field_widget.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,18 +13,26 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final HomeController _controller = HomeController();
-  final TextEditingController _salary1Controller = TextEditingController();
-  final TextEditingController _salary2Controller = TextEditingController();
+
+  // Controllers para adicionar usuários
+  final TextEditingController _userNameController = TextEditingController();
+  final TextEditingController _userSalaryController = TextEditingController();
+
+  // Controllers para adicionar dívidas
   final TextEditingController _debtNameController = TextEditingController();
   final TextEditingController _debtValueController = TextEditingController();
+  DateTime? _selectedDebtDate;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Divide Contas'),
+        title: const Text(
+          'Divide Contas',
+          style: TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
-        backgroundColor: const Color(0xffC40000),
+        backgroundColor: const Color(0xffc40000),
         elevation: 0,
       ),
       backgroundColor: Colors.grey[200],
@@ -29,232 +40,41 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildSalaryCard(),
+            _buildAddUserCard(),
             const SizedBox(height: 16),
-            _buildPercentageCard(),
+            _buildDivisionModeSwitch(),
             const SizedBox(height: 16),
-            _buildAddDebtCard(),
+            _buildUserListCard(),
             const SizedBox(height: 16),
-            _buildDebtListCard(),
+            _buildDebtSection(),
           ],
         ),
       ),
     );
   }
 
-  // Card de entrada dos salários
-  Widget _buildSalaryCard() {
-    return _buildCard(
-      title: 'Defina os Salários',
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextFormFieldWidget(
-                  hintText: 'Salário 1',
-                  controller: _salary1Controller,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomTextFormFieldWidget(
-                  hintText: 'Salário 2',
-                  controller: _salary2Controller,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: () {
-                _controller.setSalaries(
-                  _salary1Controller.text,
-                  _salary2Controller.text,
-                );
-                setState(() {});
-              },
-              style: _buttonStyle(),
-              child: const Text('Calcular'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Card para exibir os percentuais calculados
-  Widget _buildPercentageCard() {
-    return _buildCard(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildPercentageInfo('Usuário 1', _controller.user1Percentage),
-          _buildPercentageInfo('Usuário 2', _controller.user2Percentage),
-        ],
-      ),
-    );
-  }
-
-  // Método que exibe a porcentagem que cada usuário deve pagar
-  Widget _buildPercentageInfo(String title, double percentage) {
-    return Column(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  // Widget para alternar entre divisão proporcional e igualitária
+  Widget _buildDivisionModeSwitch() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SwitchListTile(
+          title: const Text('Dividir igualmente entre todos'),
+          value: _controller.isEqualDivision,
+          onChanged: (value) {
+            setState(() {
+              _controller.isEqualDivision = value;
+            });
+          },
         ),
-        const SizedBox(height: 4),
-        Text(
-          '${(percentage * 100).toStringAsFixed(2)}%',
-          style: const TextStyle(
-              fontSize: 18,
-              color: Color(0xffC40000),
-              fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-
-  // Card para adicionar dívidas
-  Widget _buildAddDebtCard() {
-    return _buildCard(
-      title: 'Adicionar Dívida',
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: CustomTextFormFieldWidget(
-              hintText: 'Nome',
-              controller: _debtNameController,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: CustomTextFormFieldWidget(
-              hintText: 'Valor',
-              controller: _debtValueController,
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {
-              _controller.addDebt(
-                _debtNameController.text,
-                _debtValueController.text,
-              );
-              _debtNameController.clear();
-              _debtValueController.clear();
-              setState(() {});
-            },
-            icon: const Icon(Icons.add_circle_outline,
-                size: 32, color: Color(0xffC40000)),
-          ),
-        ],
       ),
     );
   }
 
-  // Card de listagem de dívidas e resumo total
-  Widget _buildDebtListCard() {
-    return _buildCard(
-      title: 'Dívidas',
-      child: Column(
-        children: [
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _controller.debts.length + 1,
-            itemBuilder: (context, index) {
-              if (index < _controller.debts.length) {
-                final debt = _controller.debts.reversed
-                    .toList()[index]; // Invertendo a ordem
-                double amountUser1 = debt.value * _controller.user1Percentage;
-                double amountUser2 = debt.value * _controller.user2Percentage;
-                return _buildDebtItem(
-                    index + 1, debt.name, debt.value, amountUser1, amountUser2);
-              } else {
-                return _buildTotalSummary();
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget para exibir cada dívida
-  Widget _buildDebtItem(
-      int index, String name, double value, double user1Pay, double user2Pay) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: _boxDecoration(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: const Color(0xffC40000),
-            child: Text(
-              index.toString(),
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: _boldTextStyle()),
-                Text('Total: R\$${value.toStringAsFixed(2)}',
-                    style: _regularTextStyle()),
-                Text(
-                  'Usuário 1: R\$${user1Pay.toStringAsFixed(2)} | Usuário 2: R\$${user2Pay.toStringAsFixed(2)}',
-                  style:
-                      const TextStyle(fontSize: 14, color: Color(0xffC40000)),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.money_off, color: Colors.redAccent),
-        ],
-      ),
-    );
-  }
-
-  // Resumo total das dívidas
-  Widget _buildTotalSummary() {
-    double totalDebt = _controller.totalDebt;
-    double totalUser1 = totalDebt * _controller.user1Percentage;
-    double totalUser2 = totalDebt * _controller.user2Percentage;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: _boxDecoration(color: const Color(0xffC40000).withOpacity(0.1)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Resumo Total',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('Total das dívidas: R\$${totalDebt.toStringAsFixed(2)}',
-              style: _regularTextStyle()),
-          const SizedBox(height: 4),
-          Text(
-            'Usuário 1 paga: R\$${totalUser1.toStringAsFixed(2)} | Usuário 2 paga: R\$${totalUser2.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 14, color: Color(0xffC40000)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helpers de UI
-  Widget _buildCard({String? title, required Widget child}) {
+  // Card para adicionar um novo usuário com layout vertical
+  Widget _buildAddUserCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 3,
@@ -263,34 +83,490 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (title != null) ...[
-              Text(title, style: _boldTextStyle()),
+            const Text(
+              'Adicionar Usuário',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            CustomTextFormFieldWidget(
+              hintText: 'Nome',
+              controller: _userNameController,
+            ),
+            if (!_controller.isEqualDivision) ...[
               const SizedBox(height: 12),
+              CustomTextFormFieldWidget(
+                hintText: 'Salário',
+                controller: _userSalaryController,
+              ),
             ],
-            child,
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xffc40000),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  _controller.addUser(
+                    _userNameController.text,
+                    _controller.isEqualDivision
+                        ? "1"
+                        : _userSalaryController.text,
+                  );
+                  _userNameController.clear();
+                  _userSalaryController.clear();
+                  setState(() {});
+                },
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Adicionar',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  ButtonStyle _buttonStyle() => ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xffC40000),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      );
+  // Card para listar os usuários com ícones no lugar do número
+  Widget _buildUserListCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Usuários',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _controller.users.isEmpty
+                ? const Text('Nenhum usuário adicionado.')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _controller.users.length,
+                    itemBuilder: (context, index) {
+                      final user = _controller.users[index];
+                      double percentage = _controller.userPercentage(user);
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xffc40000),
+                          child: const Icon(Icons.person, color: Colors.white),
+                        ),
+                        title: Text(
+                          user.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: _controller.isEqualDivision
+                            ? const Text('Divisão igual')
+                            : Text(
+                                'Salário: R\$${user.salary.toStringAsFixed(2)}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit,
+                                  color: Color(0xffc40000)),
+                              onPressed: () => _editUserDialog(index, user),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  _controller.deleteUser(index);
+                                });
+                              },
+                            ),
+                            Text(
+                              '${(percentage * 100).toStringAsFixed(2)}%',
+                              style: const TextStyle(
+                                  color: Color(0xffc40000),
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  BoxDecoration _boxDecoration({Color color = Colors.white}) => BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.grey.shade300,
-              blurRadius: 4,
-              offset: const Offset(0, 2))
-        ],
-      );
+  // Seção de dívidas: adiciona dívida, lista dívidas e exibe resumo total
+  Widget _buildDebtSection() {
+    return Column(
+      children: [
+        _buildAddDebtCard(),
+        const SizedBox(height: 16),
+        _buildDebtListCard(),
+        const SizedBox(height: 16),
+        _buildTotalSummaryCard(),
+      ],
+    );
+  }
 
-  TextStyle _boldTextStyle() =>
-      const TextStyle(fontSize: 16, fontWeight: FontWeight.bold);
-  TextStyle _regularTextStyle() => const TextStyle(fontSize: 14);
+  // Card para adicionar uma dívida com layout vertical
+  Widget _buildAddDebtCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Adicionar Dívida',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            CustomTextFormFieldWidget(
+              hintText: 'Nome',
+              controller: _debtNameController,
+            ),
+            const SizedBox(height: 12),
+            CustomTextFormFieldWidget(
+              hintText: 'Valor',
+              controller: _debtValueController,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Data: ${DateFormat('dd/MM/yyyy').format(_selectedDebtDate ?? DateTime.now())}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.calendar_today,
+                      color: Color(0xffc40000)),
+                  onPressed: () async {
+                    DateTime? pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDebtDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        _selectedDebtDate = pickedDate;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xffc40000),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  _controller.addDebt(
+                    _debtNameController.text,
+                    _debtValueController.text,
+                    date: _selectedDebtDate,
+                  );
+                  _debtNameController.clear();
+                  _debtValueController.clear();
+                  _selectedDebtDate = null;
+                  setState(() {});
+                },
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Adicionar Dívida',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Card para listar as dívidas com layout aprimorado
+  Widget _buildDebtListCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _controller.debts.isEmpty
+            ? const Text('Nenhuma dívida adicionada.')
+            : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _controller.debts.length,
+                itemBuilder: (context, index) {
+                  final debt = _controller.debts[index];
+                  return _buildDebtItem(index, debt);
+                },
+              ),
+      ),
+    );
+  }
+
+  // Widget para exibir cada dívida com layout reorganizado e espaçamentos
+  Widget _buildDebtItem(int index, Debt debt) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.attach_money, color: Color(0xffc40000)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    debt.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                Text(
+                  DateFormat('dd/MM/yyyy').format(debt.date),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Total: R\$${debt.value.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const Divider(height: 24, thickness: 1),
+            Column(
+              children: _controller.users.map((user) {
+                double userPortion =
+                    debt.value * _controller.userPercentage(user);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(user.name, style: const TextStyle(fontSize: 14)),
+                      Text(
+                        'R\$${userPortion.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            fontSize: 14, color: Color(0xffc40000)),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Color(0xffc40000)),
+                  onPressed: () => _editDebtDialog(index, debt),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () {
+                    setState(() {
+                      _controller.deleteDebt(index);
+                    });
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Card de resumo total das dívidas com layout minimalista
+  Widget _buildTotalSummaryCard() {
+    double totalDebt = _controller.totalDebt;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Resumo Total',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Text('Total das dívidas: R\$${totalDebt.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 12),
+            ..._controller.users.map((user) {
+              double userTotal = totalDebt * _controller.userPercentage(user);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(user.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('R\$${userTotal.toStringAsFixed(2)}',
+                        style: const TextStyle(color: Color(0xffc40000))),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Diálogo para editar um usuário com espaçamentos adequados
+  Future<void> _editUserDialog(int index, User user) async {
+    final nameController = TextEditingController(text: user.name);
+    final salaryController =
+        TextEditingController(text: user.salary.toString());
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Editar Usuário'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nome'),
+              ),
+              const SizedBox(height: 12),
+              if (!_controller.isEqualDivision)
+                TextField(
+                  controller: salaryController,
+                  decoration: const InputDecoration(labelText: 'Salário'),
+                  keyboardType: TextInputType.number,
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text('Divisão igual ativa. Salário não é necessário.'),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xffc40000)),
+              onPressed: () {
+                setState(() {
+                  _controller.editUser(
+                      index,
+                      nameController.text,
+                      _controller.isEqualDivision
+                          ? "1"
+                          : salaryController.text);
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Diálogo para editar uma dívida com layout aprimorado
+  Future<void> _editDebtDialog(int index, Debt debt) async {
+    DateTime selectedDate = debt.date;
+    final nameController = TextEditingController(text: debt.name);
+    final valueController = TextEditingController(text: debt.value.toString());
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Editar Dívida'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nome'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: valueController,
+                  decoration: const InputDecoration(labelText: 'Valor'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                        child: Text(
+                            'Data: ${DateFormat('dd/MM/yyyy').format(selectedDate)}')),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today,
+                          color: Color(0xffc40000)),
+                      onPressed: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (pickedDate != null) {
+                          setStateDialog(() {
+                            selectedDate = pickedDate;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xffc40000)),
+                onPressed: () {
+                  setState(() {
+                    _controller.editDebt(
+                        index, nameController.text, valueController.text,
+                        date: selectedDate);
+                  });
+                  Navigator.pop(context);
+                },
+                child: const Text('Salvar'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
 }

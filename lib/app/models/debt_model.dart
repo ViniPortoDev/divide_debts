@@ -1,6 +1,6 @@
 class Debt {
   final String name;
   final double value;
-
-  Debt({required this.name, required this.value});
+  final DateTime date;
+  Debt({required this.name, required this.value, required this.date});
 }

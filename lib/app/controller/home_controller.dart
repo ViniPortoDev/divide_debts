@@ -1,31 +1,57 @@
-
-
-// Controller que gerencia os salários e as dívidas
 import 'package:divide_debts/app/models/debt_model.dart';
+import 'package:divide_debts/app/models/user_model.dart';
 
 class HomeController {
-  double salary1 = 0;
-  double salary2 = 0;
+  List<User> users = [];
   List<Debt> debts = [];
+  bool isEqualDivision = false; // Modo divisão igualitária
 
-  // Configura os salários (sem validação)
-  void setSalaries(String s1, String s2) {
-    salary1 = double.tryParse(s1) ?? 0;
-    salary2 = double.tryParse(s2) ?? 0;
+  // Adiciona um usuário (sem validação)
+  void addUser(String name, String salaryStr) {
+    // Se for divisão igual, o salário é ignorado (poderia ser 1 como valor padrão)
+    double salary = isEqualDivision ? 1 : (double.tryParse(salaryStr) ?? 0);
+    users.add(User(name: name, salary: salary));
   }
 
-  double get totalSalary => salary1 + salary2;
+  // Edita um usuário existente
+  void editUser(int index, String name, String salaryStr) {
+    double salary = isEqualDivision ? 1 : (double.tryParse(salaryStr) ?? 0);
+    users[index] = User(name: name, salary: salary);
+  }
 
-  // Percentual que o usuário 1 deve pagar
-  double get user1Percentage => totalSalary > 0 ? salary1 / totalSalary : 0;
+  // Exclui um usuário
+  void deleteUser(int index) {
+    users.removeAt(index);
+  }
 
-  // Percentual que o usuário 2 deve pagar
-  double get user2Percentage => totalSalary > 0 ? salary2 / totalSalary : 0;
+  // Soma total de todos os salários
+  double get totalSalary => users.fold(0, (sum, user) => sum + user.salary);
 
-  // Adiciona uma dívida à lista (sem validação)
-  void addDebt(String name, String valueStr) {
+  // Calcula a porcentagem que um usuário deve pagar
+  double userPercentage(User user) {
+    if (isEqualDivision && users.isNotEmpty) {
+      return 1 / users.length;
+    }
+    return totalSalary > 0 ? user.salary / totalSalary : 0;
+  }
+
+  // Adiciona uma dívida no início da lista (para que a mais nova apareça primeiro)
+  void addDebt(String name, String valueStr, {DateTime? date}) {
     double value = double.tryParse(valueStr) ?? 0;
-    debts.add(Debt(name: name, value: value));
+    DateTime debtDate = date ?? DateTime.now();
+    debts.insert(0, Debt(name: name, value: value, date: debtDate));
+  }
+
+  // Edita uma dívida existente
+  void editDebt(int index, String name, String valueStr, {DateTime? date}) {
+    double value = double.tryParse(valueStr) ?? 0;
+    DateTime debtDate = date ?? DateTime.now();
+    debts[index] = Debt(name: name, value: value, date: debtDate);
+  }
+
+  // Exclui uma dívida
+  void deleteDebt(int index) {
+    debts.removeAt(index);
   }
 
   // Soma total de todas as dívidas
