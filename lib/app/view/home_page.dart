@@ -1,8 +1,8 @@
 import 'package:divide_debts/app/controller/home_controller.dart';
 import 'package:divide_debts/app/models/debt_model.dart';
 import 'package:divide_debts/app/models/user_model.dart';
-import 'package:flutter/material.dart';
 import 'package:divide_debts/app/view/widgets/custom_text_form_field_widget.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
@@ -23,6 +23,17 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _debtValueController = TextEditingController();
   DateTime? _selectedDebtDate;
 
+  // Variável para definir se a nova dívida será dividida igualmente
+  bool _newDebtEqual = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.loadData().then((_) {
+      setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,8 +53,6 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildAddUserCard(),
             const SizedBox(height: 16),
-            _buildDivisionModeSwitch(),
-            const SizedBox(height: 16),
             _buildUserListCard(),
             const SizedBox(height: 16),
             _buildDebtSection(),
@@ -53,27 +62,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget para alternar entre divisão proporcional e igualitária
-  Widget _buildDivisionModeSwitch() {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SwitchListTile(
-          title: const Text('Dividir igualmente entre todos'),
-          value: _controller.isEqualDivision,
-          onChanged: (value) {
-            setState(() {
-              _controller.isEqualDivision = value;
-            });
-          },
-        ),
-      ),
-    );
-  }
-
-  // Card para adicionar um novo usuário com layout vertical
+  // Card para adicionar um novo usuário
   Widget _buildAddUserCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -92,13 +81,11 @@ class _HomePageState extends State<HomePage> {
               hintText: 'Nome',
               controller: _userNameController,
             ),
-            if (!_controller.isEqualDivision) ...[
-              const SizedBox(height: 12),
-              CustomTextFormFieldWidget(
-                hintText: 'Salário',
-                controller: _userSalaryController,
-              ),
-            ],
+            const SizedBox(height: 12),
+            CustomTextFormFieldWidget(
+              hintText: 'Salário',
+              controller: _userSalaryController,
+            ),
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
@@ -111,9 +98,7 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () {
                   _controller.addUser(
                     _userNameController.text,
-                    _controller.isEqualDivision
-                        ? "1"
-                        : _userSalaryController.text,
+                    _userSalaryController.text,
                   );
                   _userNameController.clear();
                   _userSalaryController.clear();
@@ -132,7 +117,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Card para listar os usuários com ícones no lugar do número
+  // Card para listar os usuários
   Widget _buildUserListCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -155,20 +140,17 @@ class _HomePageState extends State<HomePage> {
                     itemCount: _controller.users.length,
                     itemBuilder: (context, index) {
                       final user = _controller.users[index];
-                      double percentage = _controller.userPercentage(user);
                       return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xffc40000),
-                          child: const Icon(Icons.person, color: Colors.white),
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xffc40000),
+                          child: Icon(Icons.person, color: Colors.white),
                         ),
                         title: Text(
                           user.name,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: _controller.isEqualDivision
-                            ? const Text('Divisão igual')
-                            : Text(
-                                'Salário: R\$${user.salary.toStringAsFixed(2)}'),
+                        subtitle: Text(
+                            'Salário: R\$${user.salary.toStringAsFixed(2)}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -184,12 +166,6 @@ class _HomePageState extends State<HomePage> {
                                   _controller.deleteUser(index);
                                 });
                               },
-                            ),
-                            Text(
-                              '${(percentage * 100).toStringAsFixed(2)}%',
-                              style: const TextStyle(
-                                  color: Color(0xffc40000),
-                                  fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -215,7 +191,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Card para adicionar uma dívida com layout vertical
+  // Card para adicionar uma dívida com opção individual de divisão
   Widget _buildAddDebtCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -267,6 +243,22 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+            // Toggle para definir se a nova dívida será dividida igualmente
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Dividir igualmente'),
+                Switch(
+                  value: _newDebtEqual,
+                  onChanged: (value) {
+                    setState(() {
+                      _newDebtEqual = value;
+                    });
+                  },
+                  activeColor: const Color(0xffc40000),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
@@ -281,11 +273,14 @@ class _HomePageState extends State<HomePage> {
                     _debtNameController.text,
                     _debtValueController.text,
                     date: _selectedDebtDate,
+                    isEqualSplit: _newDebtEqual,
                   );
                   _debtNameController.clear();
                   _debtValueController.clear();
                   _selectedDebtDate = null;
-                  setState(() {});
+                  setState(() {
+                    _newDebtEqual = false;
+                  });
                 },
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text(
@@ -300,7 +295,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Card para listar as dívidas com layout aprimorado
+  // Card para listar as dívidas com opção individual de divisão
   Widget _buildDebtListCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -322,7 +317,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget para exibir cada dívida com layout reorganizado e espaçamentos
+  // Widget para exibir cada dívida com toggle individual e divisão dos valores
   Widget _buildDebtItem(int index, Debt debt) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -333,6 +328,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Cabeçalho com nome da dívida e data
             Row(
               children: [
                 const Icon(Icons.attach_money, color: Color(0xffc40000)),
@@ -350,16 +346,49 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+            // Toggle para definir o modo de divisão individual da dívida
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text('Dividir igualmente'),
+                Switch(
+                  value: debt.isEqualSplit,
+                  onChanged: (value) {
+                    setState(() {
+                      // Atualiza a dívida com o novo modo de divisão
+                      _controller.debts[index] = Debt(
+                        name: debt.name,
+                        value: debt.value,
+                        date: debt.date,
+                        isEqualSplit: value,
+                      );
+                      _controller.saveData();
+                    });
+                  },
+                  activeColor: const Color(0xffc40000),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Text(
               'Total: R\$${debt.value.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             const Divider(height: 24, thickness: 1),
+            // Listagem da divisão da dívida entre os usuários
             Column(
               children: _controller.users.map((user) {
-                double userPortion =
-                    debt.value * _controller.userPercentage(user);
+                double userPortion;
+                if (debt.isEqualSplit) {
+                  userPortion = _controller.users.isNotEmpty
+                      ? debt.value / _controller.users.length
+                      : 0;
+                } else {
+                  double totalSalary = _controller.totalSalary;
+                  userPortion = totalSalary > 0
+                      ? debt.value * (user.salary / totalSalary)
+                      : 0;
+                }
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
@@ -400,7 +429,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Card de resumo total das dívidas com layout minimalista
+  // Card de resumo total das dívidas
   Widget _buildTotalSummaryCard() {
     double totalDebt = _controller.totalDebt;
     return Card(
@@ -418,7 +447,10 @@ class _HomePageState extends State<HomePage> {
                 style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 12),
             ..._controller.users.map((user) {
-              double userTotal = totalDebt * _controller.userPercentage(user);
+              double userTotal = totalDebt *
+                  (_controller.totalSalary > 0
+                      ? user.salary / _controller.totalSalary
+                      : 0);
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -431,14 +463,14 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
     );
   }
 
-  // Diálogo para editar um usuário com espaçamentos adequados
+  // Diálogo para editar um usuário
   Future<void> _editUserDialog(int index, User user) async {
     final nameController = TextEditingController(text: user.name);
     final salaryController =
@@ -456,17 +488,11 @@ class _HomePageState extends State<HomePage> {
                 decoration: const InputDecoration(labelText: 'Nome'),
               ),
               const SizedBox(height: 12),
-              if (!_controller.isEqualDivision)
-                TextField(
-                  controller: salaryController,
-                  decoration: const InputDecoration(labelText: 'Salário'),
-                  keyboardType: TextInputType.number,
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Text('Divisão igual ativa. Salário não é necessário.'),
-                ),
+              TextField(
+                controller: salaryController,
+                decoration: const InputDecoration(labelText: 'Salário'),
+                keyboardType: TextInputType.number,
+              ),
             ],
           ),
           actions: [
@@ -479,11 +505,7 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 setState(() {
                   _controller.editUser(
-                      index,
-                      nameController.text,
-                      _controller.isEqualDivision
-                          ? "1"
-                          : salaryController.text);
+                      index, nameController.text, salaryController.text);
                 });
                 Navigator.pop(context);
               },
@@ -495,11 +517,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Diálogo para editar uma dívida com layout aprimorado
+  // Diálogo para editar uma dívida, incluindo opção individual de divisão
   Future<void> _editDebtDialog(int index, Debt debt) async {
     DateTime selectedDate = debt.date;
     final nameController = TextEditingController(text: debt.name);
     final valueController = TextEditingController(text: debt.value.toString());
+    // Variável local para o estado do switch de divisão individual
+    bool localEqual = debt.isEqualSplit;
     await showDialog(
       context: context,
       builder: (context) {
@@ -523,8 +547,9 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Expanded(
-                        child: Text(
-                            'Data: ${DateFormat('dd/MM/yyyy').format(selectedDate)}')),
+                      child: Text(
+                          'Data: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.calendar_today,
                           color: Color(0xffc40000)),
@@ -544,6 +569,22 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
+                // Toggle para definir o modo de divisão individual da dívida
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Dividir igualmente'),
+                    Switch(
+                      value: localEqual,
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          localEqual = value;
+                        });
+                      },
+                      activeColor: const Color(0xffc40000),
+                    ),
+                  ],
+                ),
               ],
             ),
             actions: [
@@ -558,6 +599,14 @@ class _HomePageState extends State<HomePage> {
                     _controller.editDebt(
                         index, nameController.text, valueController.text,
                         date: selectedDate);
+                    // Atualiza o modo de divisão da dívida
+                    _controller.debts[index] = Debt(
+                      name: _controller.debts[index].name,
+                      value: _controller.debts[index].value,
+                      date: _controller.debts[index].date,
+                      isEqualSplit: localEqual,
+                    );
+                    _controller.saveData();
                   });
                   Navigator.pop(context);
                 },
